@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>体育老师全能工具箱</title>
+    <!-- 引入所需库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.4.8/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 10px; background: #f5f5f5; }
+        .tab { display: flex; gap: 5px; margin: 10px 0; }
+        .tab button {
+            flex: 1; padding: 12px; border: none; background: #2196F3; 
+            color: white; border-radius: 8px; cursor: pointer;
+        }
+        .tabcontent { display: none; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .active { display: block !important; }
+        input, textarea, select, button { 
+            width: 100%; padding: 12px; margin: 8px 0; 
+            border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box;
+        }
+        button.primary { background: #2196F3; }
+        button.success { background: #4CAF50; }
+        #result { margin-top: 15px; white-space: pre-wrap; padding: 12px; background: #e3f2fd; border-radius: 6px; }
+    </style>
+</head>
+<body>
+
+<h2 style="text-align: center; color: #2196F3;">🏀 体育老师工具箱</h2>
+
+<div class="tab">
+    <button onclick="showTab('lesson')">教案生成</button>
+    <button onclick="showTab('file')">文件转换</button>
+    <button onclick="showTab('text')">文字转换</button>
+</div>
+
+<!-- 教案生成 -->
+<div id="lesson" class="tabcontent active">
+    <input type="text" id="topic" placeholder="教学主题（如：篮球三步上篮）">
+    <input type="text" id="grade" placeholder="适用年级（如：八年级）">
+    <input type="number" id="duration" placeholder="课时数（如：2）">
+    <button class="primary" onclick="generateLesson()">生成教案</button>
+    <div id="lessonResult"></div>
+</div>
+
+<!-- 文件转换 -->
+<div id="file" class="tabcontent">
+    <input type="file" id="fileInput" accept=".docx,.pdf,.md">
+    <select id="fileFormat">
+        <option value="docx">转成Word</option>
+        <option value="pdf">转成PDF</option>
+        <option value="md">转成Markdown</option>
+    </select>
+    <button class="primary" onclick="convertFile()">开始转换</button>
+    <div id="fileResult"></div>
+</div>
+
+<!-- 文字转换 -->
+<div id="text" class="tabcontent">
+    <textarea id="textInput" rows="6" placeholder="输入要转换的文字..."></textarea>
+    <select id="textFormat">
+        <option value="docx">转成Word</option>
+        <option value="pdf">转成PDF</option>
+        <option value="md">转成Markdown</option>
+    </select>
+    <button class="primary" onclick="convertText()">开始转换</button>
+    <div id="textResult"></div>
+</div>
+
+<script>
+// 全局工具对象
+const Tools = {
+    // 显示标签页
+    showTab: (tabName) => {
+        document.querySelectorAll('.tabcontent').forEach(tab => tab.style.display = 'none');
+        document.getElementById(tabName).style.display = 'block';
+    },
+
+    // 生成教案（示例数据，实际需接入AI）
+    generateLesson: () => {
+        const topic = document.getElementById('topic').value;
+        const grade = document.getElementById('grade').value;
+        const duration = document.getElementById('duration').value;
+        
+        const lessonContent = `
+            【教学主题】${topic}
+            【适用年级】${grade}
+            【课时安排】${duration}课时
+            【教学目标】
+            1. 掌握基础动作要领
+            2. 培养团队协作能力
+            3. 提高身体协调性
+            
+            【教学流程】
+            1. 热身运动（10分钟）
+            2. 动作示范讲解（15分钟）
+            3. 分组练习（20分钟）
+            4. 总结点评（5分钟）
+        `;
+
+        const resultDiv = document.getElementById('lessonResult');
+        resultDiv.innerHTML = `<pre>${lessonContent}</pre>
+            <button class="success" onclick="Tools.downloadFile('教案内容.docx', '${lessonContent}')">下载Word版</button>
+            <button class="success" onclick="Tools.exportToPDF('教案内容.pdf', '${lessonContent}')">下载PDF版</button>`;
+    },
+
+    // 文件转换核心方法
+    convertFile: () => {
+        const file = document.getElementById('fileInput').files[0];
+        const format = document.getElementById('fileFormat').value;
+        
+        if (!file) {
+            alert('请先选择文件！');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            let content;
+            // DOCX转其他格式
+            if (file.name.endsWith('.docx')) {
+                const result = await mammoth.convertToHtml({ arrayBuffer: e.target.result });
+                content = result.value;
+            } 
+            // PDF/MD处理（简化示例）
+            else {
+                content = await e.target.result;
+            }
+
+            let output;
+            switch(format) {
+                case 'docx':
+                    output = `<h3>${file.name}.docx</h3>`;
+                    Tools.downloadFile('converted.docx', content);
+                    break;
+                case 'pdf':
+                    const doc = new jspdf.jsPDF();
+                    doc.text(content, 10, 10);
+                    doc.save('converted.pdf');
+                    break;
+                case 'md':
+                    Tools.downloadFile('converted.md', content);
+                    break;
+            }
+            document.getElementById('fileResult').innerHTML = output || '转换完成！';
+        };
+
+        if (file.name.endsWith('.docx')) {
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.readAsText(file);
+        }
+    },
+
+    // 文字转换处理
+    convertText: () => {
+        const text = document.getElementById('textInput').value;
+        const format = document.getElementById('textFormat').value;
+        let output;
+
+        switch(format) {
+            case 'docx':
+                Tools.downloadFile('content.docx', text);
+                break;
+            case 'pdf':
+                const doc = new jspdf.jsPDF();
+                doc.text(text, 10, 10);
+                doc.save('content.pdf');
+                break;
+            case 'md':
+                Tools.downloadFile('content.md', text.replace(/\n/g, '\n\n'));
+                break;
+        }
+        document.getElementById('textResult').innerHTML = '转换完成！';
+    },
+
+    // 通用下载方法
+    downloadFile: (filename, content) => {
+        const blob = new Blob([content], { type: 'application/octet-stream' });
+        saveAs(blob, filename);
+    },
+
+    // 导出PDF
+    exportToPDF: (filename, content) => {
+        const doc = new jspdf.jsPDF();
+        doc.text(content, 10, 10);
+        doc.save(filename);
+    }
+}
+
+// 初始化标签页
+document.querySelector('.tab button').click();
+
+// 绑定按钮事件
+document.getElementById('lesson').querySelector('button').onclick = Tools.generateLesson;
+document.getElementById('file').querySelector('button').onclick = Tools.convertFile;
+document.getElementById('text').querySelector('button').onclick = Tools.convertText;
+</script>
+</body>
+</html>
